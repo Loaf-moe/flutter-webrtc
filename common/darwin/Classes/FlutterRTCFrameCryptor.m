@@ -190,7 +190,7 @@
 
     frameCryptor.eventQueue = [NSMutableArray array];
     frameCryptor.eventChannel = eventChannel;
-    [eventChannel setStreamHandler:frameCryptor];
+    FlutterWebRTCSetStreamHandler(eventChannel, frameCryptor);
     frameCryptor.delegate = self;
 
     self.frameCryptors[frameCryptorId] = frameCryptor;
@@ -217,7 +217,7 @@
 
     frameCryptor.eventQueue = [NSMutableArray array];
     frameCryptor.eventChannel = eventChannel;
-    [eventChannel setStreamHandler:frameCryptor];
+    FlutterWebRTCSetStreamHandler(eventChannel, frameCryptor);
     frameCryptor.delegate = self;
     self.frameCryptors[frameCryptorId] = frameCryptor;
     result(@{@"frameCryptorId" : frameCryptorId});
@@ -344,7 +344,7 @@
   // channel retains its stream handler, the handler retains the channel via the
   // associated object). Mirrors Android's frameCryptor.dispose().
   frameCryptor.delegate = nil;
-  [frameCryptor.eventChannel setStreamHandler:nil];
+  FlutterWebRTCSetStreamHandler(frameCryptor.eventChannel, nil);
   frameCryptor.eventChannel = nil;
   frameCryptor.eventSink = nil;
   @synchronized(frameCryptor) {

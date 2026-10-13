@@ -28,7 +28,7 @@
     _eventChannel = [FlutterEventChannel
         eventChannelWithName:[NSString stringWithFormat:@"FlutterWebRTC/PlatformViewId%lld", viewId]
              binaryMessenger:messenger];
-    [_eventChannel setStreamHandler:self];
+    FlutterWebRTCSetStreamHandler(_eventChannel, self);
   }
 
   return self;
@@ -39,7 +39,7 @@
 }
 
 - (void)dispose {
-  [_eventChannel setStreamHandler:nil];
+  FlutterWebRTCSetStreamHandler(_eventChannel, nil);
   _eventChannel = nil;
   self.videoTrack = nil;
 }

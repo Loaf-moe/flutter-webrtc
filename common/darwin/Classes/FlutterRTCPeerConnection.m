@@ -597,7 +597,7 @@
 
   dispatch_async(dispatch_get_main_queue(), ^{
     // setStreamHandler on main thread
-    [eventChannel setStreamHandler:dataChannel];
+    FlutterWebRTCSetStreamHandler(eventChannel, dataChannel);
     FlutterEventSink eventSink = peerConnection.eventSink;
     if (eventSink) {
       postEvent(eventSink, @{

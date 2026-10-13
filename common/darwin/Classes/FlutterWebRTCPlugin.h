@@ -15,6 +15,22 @@
 
 void postEvent(FlutterEventSink _Nullable sink, id _Nullable event);
 
+/// The serial queue every method call runs on. libwebrtc's Objective-C API
+/// blocks the caller until its own threads finish, which for the audio device
+/// module can take seconds; on the main thread that froze the app, and with
+/// merged platform and UI threads, Dart with it. Native code that touches the
+/// plugin's state or the peer connection factory should do so on this queue
+/// too, so its calls stay in order with the ones from Dart.
+dispatch_queue_t _Nonnull FlutterWebRTCWorkQueue(void);
+
+/// Runs `block` on the main thread: now when already there, else later.
+void FlutterWebRTCRunOnMain(dispatch_block_t _Nonnull block);
+
+/// Flutter wants stream handlers set on the main thread: iOS checks and
+/// aborts, macOS keeps them in a dictionary with no lock.
+void FlutterWebRTCSetStreamHandler(FlutterEventChannel* _Nullable channel,
+                                   NSObject<FlutterStreamHandler>* _Nullable handler);
+
 typedef void (^CompletionHandler)(void);
 
 typedef void (^CapturerStopHandler)(CompletionHandler _Nonnull handler);

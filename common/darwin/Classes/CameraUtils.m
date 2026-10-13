@@ -152,7 +152,7 @@
     result([FlutterError errorWithCode:@"mediaStreamTrackSetFocusPointFailed" message:@"Focus point of interest is not supported" details:nil]);
     return;
   }
-  UIDeviceOrientation orientation = [[UIDevice currentDevice] orientation];
+  UIDeviceOrientation orientation = [self deviceOrientation];
   [device lockForConfiguration:nil];
 
   [device setFocusPointOfInterest:[self getCGPointForCoordsWithOrientation:orientation
@@ -206,6 +206,19 @@
 }
 
 #if TARGET_OS_IPHONE
+/// UIDevice is UIKit's, so it is read on the main thread. Method calls run on
+/// the plugin's work queue, which the main thread never waits for.
+- (UIDeviceOrientation)deviceOrientation {
+  if (NSThread.isMainThread) {
+    return [[UIDevice currentDevice] orientation];
+  }
+  __block UIDeviceOrientation orientation;
+  dispatch_sync(dispatch_get_main_queue(), ^{
+    orientation = [[UIDevice currentDevice] orientation];
+  });
+  return orientation;
+}
+
 - (CGPoint)getCGPointForCoordsWithOrientation:(UIDeviceOrientation)orientation
                                             x:(double)x
                                             y:(double)y {
@@ -256,7 +269,7 @@
     result([FlutterError errorWithCode:@"mediaStreamTrackSetExposurePointFailed" message:@"Exposure point of interest is not supported" details:nil]);
     return;
   }
-  UIDeviceOrientation orientation = [[UIDevice currentDevice] orientation];
+  UIDeviceOrientation orientation = [self deviceOrientation];
   [device lockForConfiguration:nil];
   [device setExposurePointOfInterest:[self getCGPointForCoordsWithOrientation:orientation
                                                                                     x:x

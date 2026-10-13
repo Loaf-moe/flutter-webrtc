@@ -59,7 +59,7 @@ NSArray<RTCDesktopSource*>* _captureSources;
     [screenCapturer stopCaptureWithCompletionHandler:handler];
   };
 
-  if (presentBroadcastPicker) {
+  if (presentBroadcastPicker) dispatch_async(dispatch_get_main_queue(), ^{
     NSString* extension =
         [[[NSBundle mainBundle] infoDictionary] valueForKey:kRTCScreenSharingExtension];
 
@@ -83,7 +83,7 @@ NSArray<RTCDesktopSource*>* _captureSources;
     } else {
       NSLog(@"Unable to find button in RPSystemBroadcastPickerView");
     }
-  }
+  });
 #endif
 
 #if TARGET_OS_OSX

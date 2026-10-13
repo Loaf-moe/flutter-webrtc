@@ -96,7 +96,7 @@
              binaryMessenger:messenger];
 
     dataChannel.eventChannel = eventChannel;
-    [eventChannel setStreamHandler:dataChannel];
+    FlutterWebRTCSetStreamHandler(eventChannel, dataChannel);
 
     result(@{
       @"label" : label,
@@ -115,7 +115,7 @@
     FlutterEventChannel* eventChannel = dataChannel.eventChannel;
     [dataChannel close];
     [dataChannels removeObjectForKey:dataChannelId];
-    [eventChannel setStreamHandler:nil];
+    FlutterWebRTCSetStreamHandler(eventChannel, nil);
     dataChannel.eventChannel = nil;
   }
 }

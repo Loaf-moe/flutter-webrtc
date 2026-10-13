@@ -41,12 +41,21 @@
     _pixelBufferRef = nil;
     _eventSink = nil;
     _rotation = -1;
-    _textureId = [registry registerTexture:self];
+    __block int64_t textureId = -1;
+    dispatch_block_t registerTexture = ^{
+      textureId = [registry registerTexture:self];
+    };
+    if (NSThread.isMainThread) {
+      registerTexture();
+    } else {
+      dispatch_sync(dispatch_get_main_queue(), registerTexture);
+    }
+    _textureId = textureId;
     /*Create Event Channel.*/
     _eventChannel = [FlutterEventChannel
         eventChannelWithName:[NSString stringWithFormat:@"FlutterWebRTC/Texture%lld", _textureId]
              binaryMessenger:messenger];
-    [_eventChannel setStreamHandler:self];
+    FlutterWebRTCSetStreamHandler(_eventChannel, self);
   }
   return self;
 }
@@ -63,10 +72,14 @@
 }
 
 - (void)dispose {
-  [_eventChannel setStreamHandler:nil];
+  FlutterWebRTCSetStreamHandler(_eventChannel, nil);
   _eventChannel = nil;
   os_unfair_lock_lock(&_lock);
-  [_registry unregisterTexture:_textureId];
+  id<FlutterTextureRegistry> registry = _registry;
+  int64_t textureId = _textureId;
+  FlutterWebRTCRunOnMain(^{
+    [registry unregisterTexture:textureId];
+  });
   _textureId = -1;
   if (_pixelBufferRef) {
     CVBufferRelease(_pixelBufferRef);

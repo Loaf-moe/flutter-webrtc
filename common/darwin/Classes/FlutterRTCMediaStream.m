@@ -608,7 +608,7 @@ typedef void (^NavigatorUserMediaSuccessCallback)(RTCMediaStream* mediaStream);
   if (mediaType == AVMediaTypeVideo && [self captureDevices].count == 0) {
     // Since successCallback and errorCallback are asynchronously invoked
     // elsewhere, make sure that the invocation here is consistent.
-    dispatch_async(dispatch_get_main_queue(), ^{
+    dispatch_async(FlutterWebRTCWorkQueue(), ^{
       errorCallback(@"DOMException", @"NotFoundError");
     });
     return;
@@ -619,7 +619,7 @@ typedef void (^NavigatorUserMediaSuccessCallback)(RTCMediaStream* mediaStream);
 #endif
     [AVCaptureDevice requestAccessForMediaType:mediaType
                              completionHandler:^(BOOL granted) {
-                               dispatch_async(dispatch_get_main_queue(), ^{
+                               dispatch_async(FlutterWebRTCWorkQueue(), ^{
                                  if (granted) {
                                    NavigatorUserMediaSuccessCallback scb =
                                        ^(RTCMediaStream* mediaStream) {

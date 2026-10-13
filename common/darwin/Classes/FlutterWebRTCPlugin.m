@@ -107,6 +107,33 @@ void postEvent(FlutterEventSink _Nullable sink, id _Nullable event) {
     });
 }
 
+dispatch_queue_t FlutterWebRTCWorkQueue(void) {
+  static dispatch_queue_t queue;
+  static dispatch_once_t once;
+  dispatch_once(&once, ^{
+    queue = dispatch_queue_create(
+        "com.cloudwebrtc.flutter_webrtc.work",
+        dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL,
+                                                QOS_CLASS_USER_INITIATED, 0));
+  });
+  return queue;
+}
+
+void FlutterWebRTCRunOnMain(dispatch_block_t block) {
+  if (NSThread.isMainThread) {
+    block();
+  } else {
+    dispatch_async(dispatch_get_main_queue(), block);
+  }
+}
+
+void FlutterWebRTCSetStreamHandler(FlutterEventChannel* channel,
+                                   NSObject<FlutterStreamHandler>* handler) {
+  FlutterWebRTCRunOnMain(^{
+    FlutterWebRTCSetStreamHandler(channel, handler);
+  });
+}
+
 @implementation FlutterWebRTCPlugin {
 #pragma clang diagnostic pop
   FlutterMethodChannel* _methodChannel;
@@ -265,7 +292,7 @@ static void FlutterWebRTCApplyFieldTrials(void) {
 
   FlutterEventChannel* eventChannel =
       [FlutterEventChannel eventChannelWithName:@"FlutterWebRTC.Event" binaryMessenger:messenger];
-  [eventChannel setStreamHandler:self];
+  FlutterWebRTCSetStreamHandler(eventChannel, self);
 
   if (self) {
     _methodChannel = channel;
@@ -492,6 +519,18 @@ static void FlutterWebRTCApplyFieldTrials(void) {
 }
 
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
+  // Off the main thread, and answered back on it. See FlutterWebRTCWorkQueue.
+  FlutterResult answer = ^(id _Nullable value) {
+    FlutterWebRTCRunOnMain(^{
+      result(value);
+    });
+  };
+  dispatch_async(FlutterWebRTCWorkQueue(), ^{
+    [self handleMethodCallOnWorkQueue:call result:answer];
+  });
+}
+
+- (void)handleMethodCallOnWorkQueue:(FlutterMethodCall*)call result:(FlutterResult)result {
   if ([@"initialize" isEqualToString:call.method]) {
     NSDictionary* argsMap = call.arguments;
     NSDictionary* options = argsMap[@"options"];
@@ -552,7 +591,7 @@ static void FlutterWebRTCApplyFieldTrials(void) {
         eventChannelWithName:[NSString stringWithFormat:@"FlutterWebRTC/peerConnectionEvent%@",
                                                         peerConnectionId]
              binaryMessenger:_messenger];
-    [peerConnection.eventChannel setStreamHandler:peerConnection];
+    FlutterWebRTCSetStreamHandler(peerConnection.eventChannel, peerConnection);
 
     self.peerConnections[peerConnectionId] = peerConnection;
     result(@{@"peerConnectionId" : peerConnectionId});
@@ -1005,11 +1044,11 @@ static void FlutterWebRTCApplyFieldTrials(void) {
         // is the first point where the stream handlers can go without leaving a
         // pending cancel unanswered. Releasing them on close would do exactly that.
         for (NSString* dataChannelId in dataChannels) {
-          [dataChannels[dataChannelId].eventChannel setStreamHandler:nil];
+          FlutterWebRTCSetStreamHandler(dataChannels[dataChannelId].eventChannel, nil);
           dataChannels[dataChannelId].eventChannel = nil;
         }
         [dataChannels removeAllObjects];
-        [peerConnection.eventChannel setStreamHandler:nil];
+        FlutterWebRTCSetStreamHandler(peerConnection.eventChannel, nil);
         peerConnection.eventChannel = nil;
         [self.peerConnections removeObjectForKey:peerConnectionId];
       }
@@ -1071,16 +1110,9 @@ static void FlutterWebRTCApplyFieldTrials(void) {
   else if ([@"videoPlatformViewRendererSetSrcObject" isEqualToString:call.method]) {
       NSDictionary* argsMap = call.arguments;
       NSNumber* viewId = argsMap[@"viewId"];
-      FlutterRTCVideoPlatformViewController* render = _platformViewFactory.renders[viewId];
       NSString* streamId = argsMap[@"streamId"];
       NSString* ownerTag = argsMap[@"ownerTag"];
       NSString* trackId = argsMap[@"trackId"];
-      if (!render) {
-        result([FlutterError errorWithCode:@"videoRendererSetSrcObject: render is nil"
-                                   message:nil
-                                   details:nil]);
-        return;
-      }
       RTCMediaStream* stream = nil;
       RTCVideoTrack* videoTrack = nil;
       if ([ownerTag isEqualToString:@"local"]) {
@@ -1101,17 +1133,28 @@ static void FlutterWebRTCApplyFieldTrials(void) {
           NSLog(@"Not found video track for RTCMediaStream: %@", streamId);
         }
       }
-      render.videoTrack = videoTrack;
-      result(nil);
+      FlutterWebRTCRunOnMain(^{
+        FlutterRTCVideoPlatformViewController* render = self->_platformViewFactory.renders[viewId];
+        if (!render) {
+          result([FlutterError errorWithCode:@"videoRendererSetSrcObject: render is nil"
+                                     message:nil
+                                     details:nil]);
+          return;
+        }
+        render.videoTrack = videoTrack;
+        result(nil);
+      });
   } else if ([@"videoPlatformViewRendererDispose" isEqualToString:call.method]) {
       NSDictionary* argsMap = call.arguments;
       NSNumber* viewId = argsMap[@"viewId"];
-      FlutterRTCVideoPlatformViewController* render = _platformViewFactory.renders[viewId];
-      if(render != nil) {
-        [render dispose];
-        [_platformViewFactory.renders removeObjectForKey:viewId];
-      }
-      result(nil);
+      FlutterWebRTCRunOnMain(^{
+        FlutterRTCVideoPlatformViewController* render = self->_platformViewFactory.renders[viewId];
+        if(render != nil) {
+          [render dispose];
+          [self->_platformViewFactory.renders removeObjectForKey:viewId];
+        }
+        result(nil);
+      });
     }
 #endif
      else if ([@"mediaStreamTrackHasTorch" isEqualToString:call.method]) {
