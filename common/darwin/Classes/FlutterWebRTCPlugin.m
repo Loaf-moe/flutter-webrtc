@@ -130,7 +130,7 @@ void FlutterWebRTCRunOnMain(dispatch_block_t block) {
 void FlutterWebRTCSetStreamHandler(FlutterEventChannel* channel,
                                    NSObject<FlutterStreamHandler>* handler) {
   FlutterWebRTCRunOnMain(^{
-    FlutterWebRTCSetStreamHandler(channel, handler);
+    [channel setStreamHandler:handler];
   });
 }
 
